@@ -112,6 +112,11 @@ class WiFiManager
     void          setCustomHeadElement(const char* element);
     //if this is true, remove duplicated Access Points - defaut true
     void          setRemoveDuplicateAPs(boolean removeDuplicates);
+    //if this is true, run the web server whether the Wi-Fi connection succeeds or not
+    //in order to allow re-configuration
+    void          setRunServerAfterConnecting(boolean shouldRunServerAfterConnecting);
+    //method to call repeatedly to allow the service to handle clients.
+    void          loop();
 
   private:
     std::unique_ptr<DNSServer>        dnsServer;
@@ -145,6 +150,7 @@ class WiFiManager
     boolean       _removeDuplicateAPs     = true;
     boolean       _shouldBreakAfterConfig = false;
     boolean       _tryWPS                 = false;
+    boolean       _shouldRunServerAfterConnecting = false;
 
     const char*   _customHeadElement      = "";
 
@@ -163,6 +169,9 @@ class WiFiManager
     void          handleNotFound();
     void          handle204();
     boolean       captivePortal();
+
+    void          setupServer();
+    void          startReconfigPortal(char const *apName, char const *apPassword);
 
     // DNS server
     const byte    DNS_PORT = 53;

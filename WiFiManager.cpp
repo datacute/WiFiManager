@@ -108,6 +108,10 @@ void WiFiManager::setupConfigPortal() {
   dnsServer->setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer->start(DNS_PORT, "*", WiFi.softAPIP());
 
+	setupServer();
+}
+
+void WiFiManager::setupServer() {
   /* Setup web pages: root, wifi config pages, SO captive portal detectors and not found. */
   server->on("/", std::bind(&WiFiManager::handleRoot, this));
   server->on("/wifi", std::bind(&WiFiManager::handleWifi, this, true));
@@ -142,6 +146,9 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
   if (connectWifi("", "") == WL_CONNECTED)   {
     DEBUG_WM(F("IP Address:"));
     DEBUG_WM(WiFi.localIP());
+    if (_shouldRunServerAfterConnecting) {
+    	startReconfigPortal(apName, apPassword);
+    }
     //connected
     return true;
   }
@@ -210,6 +217,34 @@ boolean  WiFiManager::startConfigPortal(char const *apName, char const *apPasswo
   return  WiFi.status() == WL_CONNECTED;
 }
 
+void WiFiManager::startReconfigPortal(char const *apName, char const *apPassword) {
+  _apName = apName;
+  _apPassword = apPassword;
+  server.reset(new ESP8266WebServer(80));
+  setupServer();
+}
+
+void WiFiManager::loop() {
+  server->handleClient();
+  if (connect) {
+    connect = false;
+    delay(2000);
+    DEBUG_WM(F("Connecting to new AP"));
+
+    // using user-provided  _ssid, _pass in place of system-stored ssid and pass
+    if (connectWifi(_ssid, _pass) != WL_CONNECTED) {
+      DEBUG_WM(F("Failed to connect."));
+    } else {
+      //connected
+      WiFi.mode(WIFI_STA);
+      //notify that configuration has changed and any optional parameters should be saved
+      if ( _savecallback != NULL) {
+        //todo: check if any custom parameters actually exist, and check if they really changed maybe
+        _savecallback();
+      }
+    }
+  }
+}
 
 int WiFiManager::connectWifi(String ssid, String pass) {
   DEBUG_WM(F("Connecting as wifi client..."));
@@ -715,6 +750,9 @@ void WiFiManager::setRemoveDuplicateAPs(boolean removeDuplicates) {
   _removeDuplicateAPs = removeDuplicates;
 }
 
+void WiFiManager::setRunServerAfterConnecting(boolean shouldRunServerAfterConnecting) {
+  _shouldRunServerAfterConnecting = shouldRunServerAfterConnecting;
+}
 
 
 template <typename Generic>
